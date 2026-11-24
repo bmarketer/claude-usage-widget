@@ -19,7 +19,7 @@ const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
 
 // 윈도우 토스트 알림은 시작 메뉴 바로가기의 AUMID와 이 값을 맞춰서 뜬다 — electron-builder.yml appId와 같아야 함
-if (isWin) app.setAppUserModelId('com.bcuration.claudeusagewidget');
+if (isWin) app.setAppUserModelId('com.bmarketer.claudeusagewidget');
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();

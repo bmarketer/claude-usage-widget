@@ -1,5 +1,5 @@
 # 윈도우 패키징(electron-builder). 맥은 scripts/package-mac.mjs(순정 Electron 복사 — macOS 26 재서명 크래시 회피).
-appId: com.bcuration.claudeusagewidget   # main.js의 setAppUserModelId와 반드시 동일
+appId: com.bmarketer.claudeusagewidget   # main.js의 setAppUserModelId와 반드시 동일
 productName: 사용량
 artifactName: ClaudeUsageWidget-win-x64.${ext}   # 버전 없는 고정 이름 — releases/latest/download 링크가 항상 같게(ASCII 이름)
 directories:

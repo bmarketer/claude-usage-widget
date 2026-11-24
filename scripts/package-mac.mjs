@@ -15,7 +15,7 @@ import { join } from 'node:path';
 
 const ROOT = process.cwd();
 const PRODUCT = '사용량';
-const BUNDLE_ID = 'com.bcuration.claudeusagewidget';
+const BUNDLE_ID = 'com.bmarketer.claudeusagewidget';
 const OUT = join(ROOT, 'dist', 'mac');
 const APP = join(OUT, `${PRODUCT}.app`);
 const ELECTRON_APP = join(ROOT, 'node_modules', 'electron', 'dist', 'Electron.app');
