@@ -34,6 +34,11 @@ const ERRORS = {
     desc: '연결되면 자동으로 다시 불러와요.',
     foot: null, // 시각과 함께 만든다
   },
+  rate_limited: {
+    title: '잠시 뒤 다시 불러올게요',
+    desc: 'Anthropic 서버가 요청을 잠시 제한했어요. 간격을 늘려 자동으로 다시 시도해요.',
+    foot: null, // 시각과 함께 만든다
+  },
   format: {
     title: '일시적으로 불러올 수 없음',
     desc: '잠시 뒤 자동으로 다시 시도해요.',
@@ -95,6 +100,7 @@ function footText() {
   const { error, fetchedAt, expanded } = state;
   const clock = fetchedAt ? formatResetClock(fetchedAt) : '';
   if (error === 'network') return clock ? `${clock} 기준 · 연결 끊김` : '연결할 수 없음';
+  if (error === 'rate_limited') return clock ? `${clock} 기준 · 잠시 쉬는 중` : '잠시 뒤 다시 불러올게요';
   if (error) return ERRORS[error]?.foot ?? '일시적으로 불러올 수 없음';
   if (state.update) return `새 버전 ${state.update.version} · 업데이트`;
   if (!clock) return '';

@@ -3,8 +3,11 @@
 Claude Code 사용량(세션 5시간 · 주간 · 모델별 · 추가 크레딧)을 바탕화면에 띄워 두는 작은 위젯이에요.
 맥과 윈도우에서 쓸 수 있어요.
 
-> **비공식 프로젝트예요.** Anthropic이 만들거나 보증한 앱이 아니에요. Claude Code의 `/usage` 화면이 쓰는
-> 공개되지 않은 주소를 읽어 와서, Anthropic이 형식을 바꾸면 잠시 "불러올 수 없음"이 뜰 수 있어요.
+> **비공식 프로젝트예요.** Anthropic과 관련이 없고, Anthropic이 만들거나 후원·보증한 앱이 아니에요.
+> "Claude"와 "Claude Code"는 Anthropic의 상표예요. 이 위젯은 Claude Code의 `/usage` 화면이 쓰는
+> 공개되지 않은 주소를 읽어 와서, Anthropic이 형식을 바꾸거나 막으면 언제든 동작을 멈출 수 있어요.
+>
+> 공식 설치 링크는 이 README의 명령뿐이에요. 다른 곳에서 받은 설치 파일·스크립트는 실행하지 마세요.
 
 ## 설치
 
@@ -42,7 +45,10 @@ irm https://raw.githubusercontent.com/bmarketer/claude-usage-widget/main/install
 ## 내 정보는 안전한가요?
 
 - 로그인 토큰은 내 컴퓨터(맥 키체인 · 윈도우 `%USERPROFILE%\.claude`)에서 읽어
-  **Anthropic 서버(`api.anthropic.com`)로만** 보내요. 다른 곳으로 보내거나 저장하지 않아요.
+  **Anthropic 서버(`api.anthropic.com`)로만** 보내요. 다른 곳으로 보내거나 따로 저장하지 않아요.
+- 위젯이 통신하는 곳은 두 군데뿐이에요.
+  - `api.anthropic.com`: 2분마다 사용량 조회(위젯 이름을 밝힌 `User-Agent`로, 거절되면 간격을 늘려요)
+  - `api.github.com`: 하루 한 번 새 버전이 있는지 확인(사용자 정보 없이 버전 번호만)
 - 사용 기록·통계를 수집하지 않아요. 소스가 모두 공개돼 있어요(`src/main/usage.js`, `src/main/token.js`).
 - 설치 스크립트는 내려받은 파일을 Release의 체크섬(`SHA256SUMS.txt`)과 대조해요.
 

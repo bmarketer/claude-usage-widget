@@ -2,12 +2,14 @@
 import { execFile } from 'node:child_process';
 import { userInfo } from 'node:os';
 import { promisify } from 'node:util';
+import pkg from '../../package.json' with { type: 'json' };
 
 const execFileAsync = promisify(execFile);
 
 const KEYCHAIN_SERVICE = 'Claude Code-credentials';
 const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
-const USER_AGENT = 'claude-code/2.0.0';
+// Claude Code로 위장하지 않고 이 위젯임을 밝힌다 (2026-11-24 이 이름표로 200 응답 확인)
+export const USER_AGENT = `claude-usage-widget/${pkg.version} (+https://github.com/bmarketer/claude-usage-widget)`;
 const ACCOUNT_PATTERN = /^[a-zA-Z0-9._-]+$/;
 
 // Claude Code가 키체인 항목에 쓰는 계정명과 같은 규칙: $USER, 없으면 OS 사용자명.
@@ -68,6 +70,11 @@ export async function fetchUsage(token) {
   }
 
   if (res.status === 401 || res.status === 403) return { error: 'auth' };
+  // 너무 자주 묻는다고 거절 — 호출 간격을 늘린다(main.js 백오프). Retry-After(초)가 있으면 함께 넘긴다.
+  if (res.status === 429) {
+    const sec = Number(res.headers?.get?.('retry-after'));
+    return { error: 'rate_limited', retryAfterMs: Number.isFinite(sec) && sec > 0 ? sec * 1000 : 0 };
+  }
   if (!res.ok) return { error: 'network' };
 
   try {

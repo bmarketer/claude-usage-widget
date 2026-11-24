@@ -11,6 +11,7 @@ import { createWindow, applyScale } from './window.js';
 import { registerIpc } from './ipc.js';
 import { setupTray } from './tray.js';
 import { startUpdateCheck } from './updateCheck.js';
+import { nextBackoff } from './backoff.js';
 import { formatCountdown, formatResetClock } from '../shared/countdown.js';
 
 const POLL_INTERVAL_MS = 120_000;
@@ -38,6 +39,8 @@ let trayCtl = null;
 let lastFetchAt = 0;
 let lastGoodMetrics = null; // 마지막 성공값 — 오류가 나도 화면에서 지우지 않기 위해 유지
 let lastGoodFetchedAt = null; // "HH:MM 기준" 표시에 쓰는, 그 성공값을 얻은 시각
+let backoffMs = 0; // 429를 받으면 늘어나는 대기 시간 — 성공하면 0으로
+let backoffUntil = 0;
 let lastPayload = null; // 화면이 아직 안 열렸을 때 보낸 결과를 열린 뒤 다시 보내기 위해 보관
 const alertTracker = createAlertTracker();
 
@@ -59,9 +62,18 @@ function sendUsage(payload) {
 async function refresh(force) {
   const now = Date.now();
   if (!force && now - lastFetchAt < REFRESH_THROTTLE_MS) return;
+  if (!force && now < backoffUntil) return; // 요청 제한 중엔 자동 갱신을 쉰다 (새로고침 버튼은 허용)
   lastFetchAt = now;
 
   const result = await loadUsage();
+
+  if (result.error === 'rate_limited') {
+    backoffMs = nextBackoff(backoffMs, result.retryAfterMs);
+    backoffUntil = Date.now() + backoffMs;
+  } else if (!result.error) {
+    backoffMs = 0;
+    backoffUntil = 0;
+  }
 
   if (result.error) {
     sendUsage({ error: result.error, metrics: lastGoodMetrics ?? [], fetchedAt: lastGoodFetchedAt });
