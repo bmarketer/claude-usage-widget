@@ -1,0 +1,136 @@
+name: release
+# 맥·윈도우를 따로 빌드하고, 태그 push일 때만 마지막 잡이 둘을 모아 Release 하나에 올린다.
+on:
+  workflow_dispatch:   # 수동 실행: Release는 만들지 않고 결과물·윈도우 화면 캡처만 Actions에 올린다 (태그 전 테스트용)
+  push:
+    tags: ['v*']
+permissions:
+  contents: write      # Release 생성·첨부에 필요
+jobs:
+  build-mac:
+    runs-on: macos-15  # Apple Silicon(arm64). 재현성을 위해 latest 대신 고정
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: 태그와 package.json 버전 일치 확인
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: test "v$(jq -r .version package.json)" = "${GITHUB_REF_NAME}"
+      - run: npm ci
+      - run: npm test
+      - name: 앱 빌드 (electron-builder 없이 순정 Electron.app 복사)
+        run: node scripts/package-mac.mjs
+      - name: 배포 파일 생성 (zip · dmg · 체크섬)
+        run: npm run release:assets
+      - name: 스모크 테스트 — 설치 경로에 풀어 실행, 크래시 없이 떠 있는지 확인
+        run: |
+          set -euo pipefail
+          APP="/Applications/사용량.app"
+          EXE="${APP}/Contents/MacOS/Electron"
+          # 실행 중 프로세스 경로는 한글이 분해형(NFD)이라 두 형태로 모두 찾는다
+          EXE_NFD="$(printf '%s' "${EXE}" | iconv -f UTF-8 -t UTF-8-MAC)"
+          alive() { pgrep -f -- "${EXE}" >/dev/null || pgrep -f -- "${EXE_NFD}" >/dev/null; }
+          ditto -x -k dist/release/ClaudeUsageWidget-mac-arm64.zip /Applications
+          codesign --verify --deep --strict "${APP}"
+          open -n "${APP}"
+          sleep 10
+          if ! alive; then
+            echo "::error::실행 후 10초 안에 종료됐어요 (크래시 의심)"
+            ls -t ~/Library/Logs/DiagnosticReports 2>/dev/null | head -5 || true
+            exit 1
+          fi
+          pkill -f -- "${EXE}" || pkill -f -- "${EXE_NFD}" || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          retention-days: 7
+          path: |
+            dist/release/ClaudeUsageWidget-mac-arm64.zip
+            dist/release/ClaudeUsageWidget-mac-arm64.dmg
+
+  build-win:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: 태그와 package.json 버전 일치 확인
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ("v$v" -ne $env:GITHUB_REF_NAME) { throw "버전 불일치: package.json v$v / 태그 $env:GITHUB_REF_NAME" }
+      - run: npm ci
+      - run: npm test
+      - name: 설치 파일 빌드 (NSIS, x64)
+        run: npx electron-builder --win --publish never
+      - name: 스모크 테스트 — 조용히 설치·실행, 10초 뒤 살아 있는지 + 화면 캡처
+        run: |
+          $exe = 'dist/ClaudeUsageWidget-win-x64.exe'
+          if (-not (Test-Path $exe)) { throw "설치 파일이 없어요: $exe" }
+          Start-Process -FilePath $exe -ArgumentList '/S' -Wait
+          $app = Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Filter *.exe |
+            Where-Object { $_.Name -notmatch 'Uninstall' -and $_.DirectoryName -notmatch 'resources' } | Select-Object -First 1
+          if (-not $app) { throw '설치된 실행 파일을 찾지 못했어요' }
+          Write-Host "실행: $($app.FullName)"
+          $p = Start-Process -FilePath $app.FullName -PassThru
+          Start-Sleep -Seconds 10
+          if ($p.HasExited) { throw "실행 후 10초 안에 종료됐어요 (코드 $($p.ExitCode))" }
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          New-Item -ItemType Directory -Force -Path dist/shots | Out-Null
+          $bmp.Save('dist/shots/windows-smoke.png', [System.Drawing.Imaging.ImageFormat]::Png)
+          Stop-Process -Id $p.Id -Force
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-smoke-screenshot
+          retention-days: 7
+          path: dist/shots/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: win
+          retention-days: 7
+          path: dist/ClaudeUsageWidget-win-x64.exe
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-mac, build-win]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: 체크섬 (맥·윈도우 한 파일)
+        run: cd out && sha256sum ClaudeUsageWidget-mac-arm64.zip ClaudeUsageWidget-mac-arm64.dmg ClaudeUsageWidget-win-x64.exe > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: 사용량 위젯 ${{ github.ref_name }} (비공식)
+          generate_release_notes: true
+          body: |
+            Claude Code 사용량 위젯 — **비공식** 프로젝트예요(Anthropic과 무관).
+
+            ## 설치
+            **맥** (Apple Silicon) — 터미널:
+            ```
+            curl -fsSL https://raw.githubusercontent.com/bmarketer/claude-usage-widget/main/install.sh | bash
+            ```
+            **윈도우** (10·11, 64비트) — PowerShell:
+            ```
+            irm https://raw.githubusercontent.com/bmarketer/claude-usage-widget/main/install.ps1 | iex
+            ```
+            직접 받기: 맥은 `.dmg`, 윈도우는 `.exe`. 자세한 안내는 README를 봐주세요.
+          files: |
+            out/ClaudeUsageWidget-mac-arm64.zip
+            out/ClaudeUsageWidget-mac-arm64.dmg
+            out/ClaudeUsageWidget-win-x64.exe
+            out/SHA256SUMS.txt

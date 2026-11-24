@@ -1,0 +1,22 @@
+# 윈도우 패키징(electron-builder). 맥은 scripts/package-mac.mjs(순정 Electron 복사 — macOS 26 재서명 크래시 회피).
+appId: com.bcuration.claudeusagewidget   # main.js의 setAppUserModelId와 반드시 동일
+productName: 사용량
+artifactName: ClaudeUsageWidget-win-x64.${ext}   # 버전 없는 고정 이름 — releases/latest/download 링크가 항상 같게(ASCII 이름)
+directories:
+  output: dist
+files:
+  - src/**/*
+  - assets/**/*
+  - package.json
+electronLanguages: [ko, en-US]
+win:
+  # 명시 안 하면 빌드 머신 아키텍처를 기본값으로 쓴다(예: Apple Silicon 맥에서 크로스
+  # 빌드하면 arm64가 나옴) — 친구 PC는 거의 확실히 x64라 target에 고정해 둔다.
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: assets/icon.png
+nsis:
+  oneClick: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true   # 시작 메뉴 바로가기가 있어야 토스트 알림이 뜬다
