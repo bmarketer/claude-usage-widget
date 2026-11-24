@@ -11,11 +11,40 @@ const isMac = process.platform === 'darwin';
 
 export function setupTray({ app, win, settingsStore, setScale }) {
   // 맥·윈도우 모두 컬러 마스코트(32px). 맥 메뉴바는 16pt에 맞게 2배 해상도 이미지로 넣는다.
-  const iconPath = join(__dirname, '../../assets/tray-color.png');
-  const img = isMac
-    ? nativeImage.createFromBuffer(readFileSync(iconPath), { scaleFactor: 2 })
-    : nativeImage.createFromPath(iconPath);
-  const tray = new Tray(img);
+  const load = (p) =>
+    isMac ? nativeImage.createFromBuffer(readFileSync(p), { scaleFactor: 2 }) : nativeImage.createFromPath(p);
+  const still = load(join(__dirname, '../../assets/tray-color.png'));
+  const tray = new Tray(still);
+
+  // 위젯 마스코트(claude-fu.webp)와 같은 26장 동작을 메뉴바에서도 돌린다 — 장면별 시간은 원본 그대로
+  const animDir = join(__dirname, '../../assets/tray-anim');
+  let frames = [];
+  let durations = [];
+  try {
+    durations = JSON.parse(readFileSync(join(animDir, 'durations.json'), 'utf8'));
+    frames = durations.map((_, i) => load(join(animDir, `${String(i).padStart(2, '0')}.png`)));
+  } catch {
+    frames = []; // 장면 파일이 없으면 멈춘 아이콘으로
+  }
+  let animTimer = null;
+  let frameIndex = 0;
+  const stopAnim = () => {
+    clearTimeout(animTimer);
+    animTimer = null;
+    tray.setImage(still);
+  };
+  const tick = () => {
+    tray.setImage(frames[frameIndex]);
+    const wait = Math.max(60, Number(durations[frameIndex]) || 120);
+    frameIndex = (frameIndex + 1) % frames.length;
+    animTimer = setTimeout(tick, wait);
+  };
+  const syncAnim = () => {
+    const on = settingsStore.load().trayAnimate && frames.length > 0;
+    if (on && !animTimer) tick();
+    else if (!on && animTimer) stopAnim();
+  };
+  syncAnim();
   tray.setToolTip('사용량');
 
   let lastMetrics = [];
@@ -69,6 +98,15 @@ export function setupTray({ app, win, settingsStore, setScale }) {
             },
           ]
         : []),
+      {
+        label: isMac ? '메뉴바 마스코트 움직이기' : '트레이 아이콘 움직이기',
+        type: 'checkbox',
+        checked: settings.trayAnimate,
+        click: () => {
+          settingsStore.save({ trayAnimate: !settingsStore.load().trayAnimate });
+          syncAnim();
+        },
+      },
       {
         label: '로그인 시 자동 시작',
         type: 'checkbox',

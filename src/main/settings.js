@@ -1,7 +1,7 @@
 // src/main/settings.js
 import { readJson, writeJson } from './jsonFile.js';
 
-const DEFAULTS = { pinned: true, expanded: false, openAtLogin: true, scale: 1, trayPercent: true };
+const DEFAULTS = { pinned: true, expanded: false, openAtLogin: true, scale: 1, trayPercent: true, trayAnimate: true };
 
 export function createSettingsStore(filePath) {
   return {

@@ -13,7 +13,7 @@ function tmpPath() {
 test('load returns defaults when no file exists yet', () => {
   const { dir, file } = tmpPath();
   const store = createSettingsStore(file);
-  assert.deepEqual(store.load(), { pinned: true, expanded: false, openAtLogin: true, scale: 1, trayPercent: true });
+  assert.deepEqual(store.load(), { pinned: true, expanded: false, openAtLogin: true, scale: 1, trayPercent: true, trayAnimate: true });
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -21,8 +21,8 @@ test('save patches and persists only the given keys', () => {
   const { dir, file } = tmpPath();
   const store = createSettingsStore(file);
   store.save({ expanded: true });
-  assert.deepEqual(store.load(), { pinned: true, expanded: true, openAtLogin: true, scale: 1, trayPercent: true });
+  assert.deepEqual(store.load(), { pinned: true, expanded: true, openAtLogin: true, scale: 1, trayPercent: true, trayAnimate: true });
   store.save({ pinned: false });
-  assert.deepEqual(store.load(), { pinned: false, expanded: true, openAtLogin: true, scale: 1, trayPercent: true });
+  assert.deepEqual(store.load(), { pinned: false, expanded: true, openAtLogin: true, scale: 1, trayPercent: true, trayAnimate: true });
   rmSync(dir, { recursive: true, force: true });
 });
