@@ -10,8 +10,8 @@ jobs:
   build-mac:
     runs-on: macos-15  # Apple Silicon(arm64). 재현성을 위해 latest 대신 고정
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -42,7 +42,7 @@ jobs:
             exit 1
           fi
           pkill -f -- "${EXE}" || pkill -f -- "${EXE_NFD}" || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: mac
           retention-days: 7
@@ -56,8 +56,8 @@ jobs:
       run:
         shell: pwsh
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -89,13 +89,13 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist/shots | Out-Null
           $bmp.Save('dist/shots/windows-smoke.png', [System.Drawing.Imaging.ImageFormat]::Png)
           Stop-Process -Id $p.Id -Force
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: windows-smoke-screenshot
           retention-days: 7
           path: dist/shots/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: win
           retention-days: 7
@@ -106,13 +106,13 @@ jobs:
     needs: [build-mac, build-win]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: out
           merge-multiple: true
       - name: 체크섬 (맥·윈도우 한 파일)
         run: cd out && sha256sum ClaudeUsageWidget-mac-arm64.zip ClaudeUsageWidget-mac-arm64.dmg ClaudeUsageWidget-win-x64.exe > SHA256SUMS.txt && cat SHA256SUMS.txt
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           name: 사용량 위젯 ${{ github.ref_name }} (비공식)
           generate_release_notes: true
