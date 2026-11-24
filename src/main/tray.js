@@ -2,6 +2,7 @@
 import { Tray, Menu, nativeImage } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { trayTitle, trayTooltip } from '../shared/trayTitle.js';
 import { SCALE_PRESETS, clampScale } from '../shared/scale.js';
 
@@ -9,9 +10,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const isMac = process.platform === 'darwin';
 
 export function setupTray({ app, win, settingsStore, setScale }) {
-  // 맥은 메뉴바 흑백 템플릿, 윈도우 작업표시줄은 어두운 배경이 많아 컬러 아이콘
-  const img = nativeImage.createFromPath(join(__dirname, '../../assets', isMac ? 'trayTemplate.png' : 'tray-color.png'));
-  if (isMac) img.setTemplateImage(true);
+  // 맥·윈도우 모두 컬러 마스코트(32px). 맥 메뉴바는 16pt에 맞게 2배 해상도 이미지로 넣는다.
+  const iconPath = join(__dirname, '../../assets/tray-color.png');
+  const img = isMac
+    ? nativeImage.createFromBuffer(readFileSync(iconPath), { scaleFactor: 2 })
+    : nativeImage.createFromPath(iconPath);
   const tray = new Tray(img);
   tray.setToolTip('사용량');
 

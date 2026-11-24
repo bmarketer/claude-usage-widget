@@ -16,6 +16,10 @@ contextBridge.exposeInMainWorld('api', {
     setScale: (scale) => ipcRenderer.invoke('win:setScale', scale),
     onScale: (cb) => ipcRenderer.on('win:scale', (_e, scale) => cb(scale)),
   },
+  banner: {
+    onShow: (cb) => ipcRenderer.on('banner:show', (_e, msg) => cb(msg)),
+    done: () => ipcRenderer.send('banner:done'),
+  },
   app: {
     openHelp: () => ipcRenderer.invoke('app:openHelp'),
     openReleases: () => ipcRenderer.invoke('app:openReleases'),

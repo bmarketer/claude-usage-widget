@@ -1,6 +1,6 @@
 {
   "name": "claude-usage-widget",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Claude Code 사용량 데스크톱 위젯 (비공식 · macOS·Windows)",
   "author": "bmarketer",
   "private": true,

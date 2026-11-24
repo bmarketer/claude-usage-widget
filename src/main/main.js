@@ -3,6 +3,8 @@ import { app, dialog, Menu, Notification } from 'electron';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
 import { createNotify } from './notify.js';
+import { createBanner } from './banner.js';
+import { readJson, writeJson } from './jsonFile.js';
 import { fetchUsage, normalize } from './usage.js';
 import { getToken } from './token.js';
 import { createAlertTracker } from './notifier.js';
@@ -42,7 +44,8 @@ let lastGoodFetchedAt = null; // "HH:MM 기준" 표시에 쓰는, 그 성공값�
 let backoffMs = 0; // 429를 받으면 늘어나는 대기 시간 — 성공하면 0으로
 let backoffUntil = 0;
 let lastPayload = null; // 화면이 아직 안 열렸을 때 보낸 결과를 열린 뒤 다시 보내기 위해 보관
-const alertTracker = createAlertTracker();
+let alertTracker = createAlertTracker(); // 앱 준비 뒤 저장된 상태로 다시 만든다
+let alertsPath = null;
 
 async function loadUsage() {
   const tokenResult = await getToken();
@@ -85,15 +88,25 @@ async function refresh(force) {
   lastGoodFetchedAt = result.fetchedAt;
   sendUsage({ error: null, metrics: result.metrics, fetchedAt: result.fetchedAt });
 
-  for (const n of alertTracker.check(result.metrics)) {
+  const fired = alertTracker.check(result.metrics);
+  if (alertsPath) writeJson(alertsPath, alertTracker.getState()); // 다시 켜도 같은 구간 알림을 또 보내지 않게
+  for (const n of fired) {
     notifyThreshold(n);
   }
 }
 
-// 맥: 서명 안 된 앱은 알림이 실패할 수 있어 osascript로 대신 띄운다. 윈도우: 기본 토스트.
-const notify = isMac
-  ? createNotify({ Notification, execFile })
-  : (title, body) => new Notification({ title, body }).show();
+// 맥: 서명 안 된 앱은 시스템 알림이 막히거나 다른 앱 이름으로 떠서, 위젯이 직접 맥 알림 모양 배너를 띄운다.
+//      배너를 못 띄우면(예외) 예전처럼 시스템 알림 → osascript로 대신한다. 윈도우: 기본 토스트.
+let showBanner = null;
+const fallbackNotify = createNotify({ Notification, execFile });
+function notify(title, body) {
+  if (!isMac) {
+    new Notification({ title, body }).show();
+    return;
+  }
+  if (!showBanner) showBanner = createBanner();
+  showBanner({ title, body, near: win?.getBounds() }).catch(() => fallbackNotify(title, body));
+}
 
 function notifyThreshold(n) {
   const remain = formatCountdown(n.resetsAt);
@@ -138,6 +151,8 @@ app.whenReady().then(() => {
   const userData = app.getPath('userData');
   const settingsStore = createSettingsStore(join(userData, 'settings.json'));
   const settings = settingsStore.load();
+  alertsPath = join(userData, 'alerts.json');
+  alertTracker = createAlertTracker(readJson(alertsPath, {}));
 
   if (offerMoveToApplications()) return;
 
