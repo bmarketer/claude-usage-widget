@@ -38,6 +38,7 @@ let trayCtl = null;
 let lastFetchAt = 0;
 let lastGoodMetrics = null; // 마지막 성공값 — 오류가 나도 화면에서 지우지 않기 위해 유지
 let lastGoodFetchedAt = null; // "HH:MM 기준" 표시에 쓰는, 그 성공값을 얻은 시각
+let lastPayload = null; // 화면이 아직 안 열렸을 때 보낸 결과를 열린 뒤 다시 보내기 위해 보관
 const alertTracker = createAlertTracker();
 
 async function loadUsage() {
@@ -50,6 +51,11 @@ async function loadUsage() {
   return normalize(usageResult.json, new Date().toISOString());
 }
 
+function sendUsage(payload) {
+  lastPayload = payload;
+  win?.webContents.send('usage:data', payload);
+}
+
 async function refresh(force) {
   const now = Date.now();
   if (!force && now - lastFetchAt < REFRESH_THROTTLE_MS) return;
@@ -58,18 +64,14 @@ async function refresh(force) {
   const result = await loadUsage();
 
   if (result.error) {
-    win?.webContents.send('usage:data', {
-      error: result.error,
-      metrics: lastGoodMetrics ?? [],
-      fetchedAt: lastGoodFetchedAt,
-    });
+    sendUsage({ error: result.error, metrics: lastGoodMetrics ?? [], fetchedAt: lastGoodFetchedAt });
     return;
   }
 
   lastGoodMetrics = result.metrics;
   trayCtl?.update(result.metrics);
   lastGoodFetchedAt = result.fetchedAt;
-  win?.webContents.send('usage:data', { error: null, metrics: result.metrics, fetchedAt: result.fetchedAt });
+  sendUsage({ error: null, metrics: result.metrics, fetchedAt: result.fetchedAt });
 
   for (const n of alertTracker.check(result.metrics)) {
     notifyThreshold(n);
@@ -135,6 +137,11 @@ app.whenReady().then(() => {
   }
 
   win = createWindow(userData, settings);
+  // 첫 조회가 화면 로딩보다 빨리 끝나면(윈도우에서 로그인 파일이 없을 때 등) 보낸 결과가 사라진다 —
+  // 화면이 열리면 마지막 결과를 다시 보낸다
+  win.webContents.on('did-finish-load', () => {
+    if (lastPayload) win.webContents.send('usage:data', lastPayload);
+  });
   const setScale = (value) => {
     const scale = applyScale(win, value);
     settingsStore.save({ scale });
