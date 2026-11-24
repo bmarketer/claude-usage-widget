@@ -10,18 +10,18 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const isMac = process.platform === 'darwin';
 
 export function setupTray({ app, win, settingsStore, setScale }) {
-  // 맥·윈도우 모두 컬러 마스코트(32px). 맥 메뉴바는 16pt에 맞게 2배 해상도 이미지로 넣는다.
-  const load = (p) =>
-    isMac ? nativeImage.createFromBuffer(readFileSync(p), { scaleFactor: 2 }) : nativeImage.createFromPath(p);
-  const still = load(join(__dirname, '../../assets/tray-color.png'));
+  // 컬러 마스코트. 맥 메뉴바는 여백을 잘라 메뉴바 높이에 가깝게(33×22pt, 일반·레티나용 NN.png/NN@2x.png 자동 선택),
+  // 윈도우 트레이는 정사각형 32px.
+  const load = (p) => nativeImage.createFromPath(p);
+  const animDir = join(__dirname, '../../assets/tray-anim', isMac ? 'mac' : 'win');
+  const still = load(join(animDir, '00.png'));
   const tray = new Tray(still);
 
   // 위젯 마스코트(claude-fu.webp)와 같은 26장 동작을 메뉴바에서도 돌린다 — 장면별 시간은 원본 그대로
-  const animDir = join(__dirname, '../../assets/tray-anim');
   let frames = [];
   let durations = [];
   try {
-    durations = JSON.parse(readFileSync(join(animDir, 'durations.json'), 'utf8'));
+    durations = JSON.parse(readFileSync(join(animDir, '..', 'durations.json'), 'utf8'));
     frames = durations.map((_, i) => load(join(animDir, `${String(i).padStart(2, '0')}.png`)));
   } catch {
     frames = []; // 장면 파일이 없으면 멈춘 아이콘으로
